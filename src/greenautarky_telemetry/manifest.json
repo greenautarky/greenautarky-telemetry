@@ -1,0 +1,14 @@
+{
+  "domain": "greenautarky_telemetry",
+  "name": "greenautarky Telemetry",
+  "version": "0.2.3",
+  "codeowners": [
+    "@greenautarky"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/greenautarky/greenautarky-telemetry",
+  "iot_class": "local_polling"
+}
