@@ -220,6 +220,43 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_set_preferences(
+    hass: HomeAssistant,
+    *,
+    tier1: bool | None = None,
+    tier2: bool | None = None,
+    error_logs: bool | None = None,
+    metrics: bool | None = None,
+) -> dict[str, Any]:
+    """Record a consent decision — THE entry point for any other component.
+
+    Builds the v2 record (tiers + legacy mirror + policy version), keeps it in
+    ``hass.data`` and saves it. Canonical keys win over the legacy aliases when
+    both are given; a tier that is not mentioned keeps its current value.
+
+    Why this exists (0.2.4): the onboarding wizard used to write ``error_logs``
+    / ``metrics`` as flat keys straight into the preferences dict and save
+    that. The truth of a v2 record lives in ``tiers.<tier>.value``, which the
+    flat write never touched, and the OS gate reads the tiers — so a resident
+    who said yes to Tier 2 was stored as ``tier2: false`` (bench device,
+    2026-09-16). One builder, one caller contract, no second schema.
+    """
+    current = _flatten_v2(hass.data[DOMAIN]["preferences"])
+    if error_logs is not None:
+        current[TIER_1] = bool(error_logs)
+    if metrics is not None:
+        current[TIER_2] = bool(metrics)
+    if tier1 is not None:
+        current[TIER_1] = bool(tier1)
+    if tier2 is not None:
+        current[TIER_2] = bool(tier2)
+    new_record = _build_v2_record(current)
+    hass.data[DOMAIN]["preferences"] = new_record
+    store: TelemetryStore = hass.data[DOMAIN]["store"]
+    await store.async_save(new_record)
+    return new_record
+
+
 @callback
 @websocket_api.websocket_command({vol.Required("type"): "greenautarky_telemetry/get"})
 def websocket_get_preferences(
@@ -273,26 +310,11 @@ async def websocket_set_preferences(
     legacy aliases (``error_logs``/``metrics``). Canonical keys win if
     both are present in the same message.
     """
-    raw = hass.data[DOMAIN]["preferences"]
-    current = _flatten_v2(raw)
-
-    # Apply legacy aliases first (lower precedence)
-    if LEGACY_TIER1_KEY in msg:
-        current[TIER_1] = bool(msg[LEGACY_TIER1_KEY])
-    if LEGACY_TIER2_KEY in msg:
-        current[TIER_2] = bool(msg[LEGACY_TIER2_KEY])
-
-    # Canonical keys override
-    if TIER_1 in msg:
-        current[TIER_1] = bool(msg[TIER_1])
-    if TIER_2 in msg:
-        current[TIER_2] = bool(msg[TIER_2])
-
-    new_record = _build_v2_record(current)
-    hass.data[DOMAIN]["preferences"] = new_record
-
-    store: TelemetryStore = hass.data[DOMAIN]["store"]
-    await store.async_save(new_record)
+    new_record = await async_set_preferences(
+        hass,
+        **{k: msg[k] for k in (TIER_1, TIER_2, LEGACY_TIER1_KEY, LEGACY_TIER2_KEY) if k in msg},
+    )
+    current = _flatten_v2(new_record)
 
     # Echo response in the same shape as `get`
     connection.send_result(

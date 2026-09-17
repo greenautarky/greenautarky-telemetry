@@ -1,6 +1,6 @@
 [project]
 name = "greenautarky-telemetry"
-version = "0.2.3"
+version = "0.2.4"
 description = "GreenAutarky telemetry-consent storage backend for Home Assistant — Privacy-Tier model (Tier 1 opt-out / Tier 2 opt-in) storage + WebSocket API, no PII"
 authors = [{name = "Thomas Taube", email = "thomas@greenautarky.com"}]
 license = {text = "Proprietary"}

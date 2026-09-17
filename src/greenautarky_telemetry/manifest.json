@@ -1,7 +1,7 @@
 {
   "domain": "greenautarky_telemetry",
   "name": "greenautarky Telemetry",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "codeowners": [
     "@greenautarky"
   ],
