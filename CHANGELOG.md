@@ -4,6 +4,17 @@ All notable changes to `greenautarky_telemetry` are documented here.
 The version is the single source of truth in `pyproject.toml` and
 `src/greenautarky_telemetry/manifest.json` (kept in lockstep; CI asserts it).
 
+## v0.2.5 — 2026-11-26
+
+### feat: `async_clear_preferences(hass)` — forget a recorded decision
+
+For an onboarding reset (a new resident). `async_set_preferences` records a
+decision (it stamps `accepted_at` and the policy version); used to restore the
+starting values it left a record of a choice nobody made. The new entry point
+removes the stored record and puts the in-memory state back to "nobody has
+decided", the same state as a freshly installed device. Tests: 7 new;
+recording the defaults instead of removing fails them.
+
 ## v0.2.4 — 2026-09-17
 
 ### feat: `async_set_preferences(hass, …)` — one entry point for a consent decision

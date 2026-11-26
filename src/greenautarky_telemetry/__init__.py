@@ -165,6 +165,20 @@ class TelemetryStore(Store[dict[str, Any]]):
         return _build_v2_record(DEFAULT_PREFERENCES)
 
 
+def _unrecorded() -> dict[str, Any]:
+    """The state of a device on which nobody has decided yet.
+
+    The tiers carry the wizard's starting values for display; without a
+    stored record the OS gate sends neither tier.
+    """
+    data = _build_v2_record(DEFAULT_PREFERENCES)
+    data["policy_version_accepted"] = None
+    for tier in (TIER_1, TIER_2):
+        data["tiers"][tier]["policy_version"] = None
+        data["tiers"][tier]["accepted_at"] = None
+    return data
+
+
 async def _async_setup_common(hass: HomeAssistant) -> bool:
     """Shared setup — called from async_setup (yaml) and async_setup_entry.
 
@@ -190,11 +204,7 @@ async def _async_setup_common(hass: HomeAssistant) -> bool:
         # policy_version_accepted=None signals "not yet onboarded" — the
         # frontend treats this distinctly from "stale" (consent given but
         # under an older policy version).
-        data = _build_v2_record(DEFAULT_PREFERENCES)
-        data["policy_version_accepted"] = None
-        for tier in (TIER_1, TIER_2):
-            data["tiers"][tier]["policy_version"] = None
-            data["tiers"][tier]["accepted_at"] = None
+        data = _unrecorded()
 
     hass.data[DOMAIN] = {"store": store, "preferences": data}
 
@@ -255,6 +265,21 @@ async def async_set_preferences(
     store: TelemetryStore = hass.data[DOMAIN]["store"]
     await store.async_save(new_record)
     return new_record
+
+
+async def async_clear_preferences(hass: HomeAssistant) -> dict[str, Any]:
+    """Forget the recorded decision: the device is back to "nobody has decided".
+
+    For an onboarding reset (a new resident). The stored record is removed,
+    not overwritten, so the OS gate finds no record and sends neither tier,
+    exactly as on a freshly flashed device. Recording the starting values
+    instead would read as a decision that nobody made.
+    """
+    data = _unrecorded()
+    hass.data[DOMAIN]["preferences"] = data
+    store: TelemetryStore = hass.data[DOMAIN]["store"]
+    await store.async_remove()
+    return data
 
 
 @callback
